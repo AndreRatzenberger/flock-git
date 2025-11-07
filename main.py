@@ -51,8 +51,9 @@ flock = Flock()
 
 
 flock.add_mcp(
-    name="github_tools",
+    name="github_tools_create_repository",
     enable_tools_feature=True,
+    tool_whitelist=["create_repository"],
     connection_params=StdioServerParameters(
         command="docker",
         args=[
@@ -72,12 +73,36 @@ flock.add_mcp(
 )
 
 
+flock.add_mcp(
+    name="github_tools_issues",
+    enable_tools_feature=True,
+    tool_whitelist=["create_repository", "issue_write", "issue_read"],
+    connection_params=StdioServerParameters(
+        command="docker",
+        args=[
+            "run",
+            "-i",
+            "--rm",
+            "-e",
+            "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "ghcr.io/github/github-mcp-server",
+        ],
+        env={
+            "GITHUB_PERSONAL_ACCESS_TOKEN": os.getenv(
+                "GITHUB_PERSONAL_ACCESS_TOKEN", ""
+            ),
+        },
+    ),
+)
+
+
+
 (
     flock.agent("task_generator")
     .description(
         "Generates a list of tasks for a project and creates the repository on GitHub with the github mcp tools."
     )
-    .with_mcps({"github_tools": {"tool_whitelist": ["create_repository"]}})
+    .with_mcps(["github_tools_create_repository"])
     .consumes(Project)
     .publishes(Task, fan_out=5)
 )
@@ -88,7 +113,7 @@ flock.add_mcp(
     .description(
         "Creates a github issue for a given task in the specified repository using the github mcp tools."
     )
-    .with_mcps({"github_tools": {"tool_whitelist": ["issue_write","issue_read"]}})
+    .with_mcps(["github_tools_issues"])
     .consumes(Task)
     .publishes(Issue)
     .max_concurrency(5)
